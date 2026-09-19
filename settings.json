@@ -8,8 +8,7 @@
   "server": {
     "ip": "Sadikmathakiya07.aternos.me",
     "port": 21275,
-    "edition": "java",
-    "version": "1.21.11",
+    "version": false,
     "try-creative": false
   },
   "position": {
