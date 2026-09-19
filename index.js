@@ -2,6 +2,7 @@
 
 const { addLog, getLogs } = require("./logger");
 const mineflayer = require("mineflayer");
+const net = require("net");
 const { Movements, pathfinder, goals } = require("mineflayer-pathfinder");
 const { GoalBlock } = goals;
 const config = require("./settings.json");
@@ -1184,10 +1185,53 @@ function getReconnectDelay() {
   return delay + jitter;
 }
 
-function createBot() {
+function canReachHost(host, port, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let connected = false;
+
+    const cleanup = () => {
+      socket.removeAllListeners();
+      socket.destroy();
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => {
+      connected = true;
+      cleanup();
+      resolve(true);
+    });
+    socket.once("timeout", () => {
+      cleanup();
+      resolve(false);
+    });
+    socket.once("error", () => {
+      cleanup();
+      resolve(false);
+    });
+
+    socket.connect(port, host);
+  });
+}
+
+async function createBot() {
   if (isReconnecting) {
     addLog("[Bot] Already reconnecting, skipping...");
     return;
+  }
+
+  const serverHost = config.server && config.server.ip;
+  const serverPort = config.server && config.server.port;
+
+  if (serverHost && serverPort) {
+    const reachable = await canReachHost(serverHost, serverPort, 8000);
+    if (!reachable) {
+      addLog(
+        `[Bot] Host ${serverHost}:${serverPort} did not respond to TCP connection check. Retrying later.`,
+      );
+      scheduleReconnect();
+      return;
+    }
   }
 
   // Cleanup previous bot properly to avoid ghost bots
